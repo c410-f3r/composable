@@ -4929,7 +4929,26 @@ checksum = "0debeb9fcf88823ea64d64e4a815ab1643f33127d995978e099942ce38f25238"
 
 [[package]]
 name = "mosaic-vault"
-version = "0.1.0"
+version = "0.0.1"
+dependencies = [
+ "bitflags",
+ "composable-traits",
+ "frame-support",
+ "frame-system",
+ "log 0.4.14",
+ "num-traits",
+ "orml-tokens",
+ "orml-traits",
+ "parity-scale-codec",
+ "proptest",
+ "scale-info",
+ "serde",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
 
 [[package]]
 name = "multiaddr"
