@@ -1,5 +1,13 @@
-use frame_support::sp_runtime::Perbill;
+#![allow(dead_code)]
+#![allow(clippy::many_single_char_names)]
+use frame_support::{
+	codec::{Decode, Encode},
+	sp_runtime::Perbill,
+};
+use scale_info::TypeInfo;
 use sp_runtime::{DispatchError, Permill};
+
+use sp_std::vec::Vec;
 
 /// Describes a simple exchanges which does not allow advanced configurations such as slippage.
 pub trait SimpleExchange {
@@ -20,7 +28,7 @@ pub trait SimpleExchange {
 		to_account: Self::AccountId,
 		to_amount: Self::Balance,
 		slippage: Perbill,
-	) -> Result<Self::Balance, Self::Error>;
+	) -> Result<Self::Balance, DispatchError>;
 }
 
 pub struct TakeResult<BALANCE> {
@@ -68,4 +76,86 @@ pub trait Orderbook {
 	) -> Result<TakeResult<Self::Balance>, DispatchError>;
 
 	fn is_order_executed(order_id: &Self::OrderId) -> bool;
+}
+
+/// Implement AMM curve from "StableSwap - efficient mechanism for Stablecoin liquidity by Micheal
+/// Egorov" Also blog at https://miguelmota.com/blog/understanding-stableswap-curve/ has very good explanation.
+
+pub trait CurveAmm {
+	/// The asset ID type
+	type AssetId;
+	/// The balance type of an account
+	type Balance;
+	/// The user account identifier type for the runtime
+	type AccountId;
+
+	/// Current number of pools (also ID for the next created pool)
+	fn pool_count() -> PoolId;
+
+	/// Information about the pool with the specified `id`
+	fn pool(id: PoolId) -> Option<PoolInfo<Self::AccountId, Self::AssetId, Self::Balance>>;
+
+	/// Creates a pool, taking a creation fee from the caller
+	fn create_pool(
+		who: &Self::AccountId,
+		assets: Vec<Self::AssetId>,
+		amplification_coefficient: Self::Balance,
+	) -> Result<PoolId, DispatchError>;
+
+	/// Deposit coins into the pool
+	/// `amounts` - list of amounts of coins to deposit,
+	/// `min_mint_amount` - minimum amout of LP tokens to mint from the deposit.
+	fn add_liquidity(
+		who: &Self::AccountId,
+		pool_id: PoolId,
+		amounts: Vec<Self::Balance>,
+		min_mint_amount: Self::Balance,
+	) -> Result<(), DispatchError>;
+
+	/// Withdraw coins from the pool.
+	/// Withdrawal amount are based on current deposit ratios.
+	/// `amount` - quantity of LP tokens to burn in the withdrawal,
+	/// `min_amounts` - minimum amounts of underlying coins to receive.
+	fn remove_liquidity(
+		who: &Self::AccountId,
+		pool_id: PoolId,
+		amount: Self::Balance,
+		min_amounts: Vec<Self::Balance>,
+	) -> Result<(), DispatchError>;
+
+	/// Perform an exchange between two coins.
+	/// `i` - index value of the coin to send,
+	/// `j` - index value of the coin to receive,
+	/// `dx` - amount of `i` being exchanged,
+	/// `min_dy` - minimum amount of `j` to receive.
+	fn exchange(
+		who: &Self::AccountId,
+		pool_id: PoolId,
+		i: PoolTokenIndex,
+		j: PoolTokenIndex,
+		dx: Self::Balance,
+		min_dy: Self::Balance,
+	) -> Result<(), DispatchError>;
+}
+
+/// Type that represents index type of token in the pool passed from the outside as an extrinsic
+/// argument.
+pub type PoolTokenIndex = u32;
+
+/// Type that represents pool id
+pub type PoolId = u32;
+
+/// Pool type
+#[derive(Encode, Decode, TypeInfo, Clone, Default, PartialEq, Eq, Debug)]
+pub struct PoolInfo<AccountId, AssetId, Balance> {
+	/// Owner of pool
+	pub owner: AccountId,
+	/// LP multiasset
+	pub pool_asset: AssetId,
+	/// List of multiasset supported by the pool
+	pub assets: Vec<AssetId>,
+	/// Initial amplification coefficient
+	pub amplification_coefficient: Balance,
+	/// Current balances
+	pub balances: Vec<Balance>,
 }

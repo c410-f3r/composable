@@ -8,12 +8,10 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 mod weights;
 use common::{
-	impls::DealWithFees, AccountId, AccountIndex, Amount, AuraId, Balance, BlockNumber,
+	impls::DealWithFees, AccountId, AccountIndex, Address, Amount, AuraId, Balance, BlockNumber,
 	CouncilInstance, EnsureRootOrHalfCouncil, Hash, Signature, AVERAGE_ON_INITIALIZE_RATIO, DAYS,
 	HOURS, MAXIMUM_BLOCK_WEIGHT, MILLI_PICA, NORMAL_DISPATCH_RATIO, PICA, SLOT_DURATION,
 };
-use dutch_auction::DeFiComposableConfig;
-use liquidations::DeFiComposablePallet;
 use orml_traits::parameter_type_with_key;
 use primitives::currency::CurrencyId;
 use sp_api::impl_runtime_apis;
@@ -22,10 +20,9 @@ use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, ConvertInto, Zero},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, DispatchError,
+	ApplyExtrinsicResult,
 };
 
-use composable_traits::dex::{Orderbook, TakeResult};
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
@@ -36,7 +33,7 @@ use sp_runtime::traits::AccountIdConversion;
 // A few exports that help ease life for downstream crates.
 pub use support::{
 	construct_runtime, match_type, parameter_types,
-	traits::{Contains, Everything, KeyOwnerProofSystem, Randomness, StorageInfo},
+	traits::{Contains, Everything, KeyOwnerProofSystem, Nothing, Randomness, StorageInfo},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
 		DispatchClass, IdentityFee, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
@@ -62,7 +59,7 @@ use xcm_builder::{
 	AccountId32Aliases, AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom, EnsureXcmOrigin,
 	FixedWeightBounds, LocationInverter, NativeAsset, ParentAsSuperuser, ParentIsDefault,
 	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
+	SignedAccountId32AsNative, SovereignSignedViaLocation, TakeWeightCredit,
 };
 use xcm_executor::XcmExecutor;
 
@@ -114,8 +111,10 @@ pub fn native_version() -> NativeVersion {
 }
 
 parameter_types! {
+	// how much block hashes to keep
 	pub const BlockHashCount: BlockNumber = 250;
 	pub const Version: RuntimeVersion = VERSION;
+	// 5mb with 25% of that reserved for system extrinsics.
 	pub RuntimeBlockLength: BlockLength =
 		BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
 	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
@@ -197,24 +196,28 @@ impl system::Config for Runtime {
 impl randomness_collective_flip::Config for Runtime {}
 
 parameter_types! {
-	pub const MaxAuthorities: u32 = 1_000;
+	// Maximum authorities/collators for aura
+	pub const MaxAuthorities: u32 = 100;
 }
 
 impl aura::Config for Runtime {
 	type AuthorityId = AuraId;
 	type DisabledValidators = ();
-	type MaxAuthorities = ();
+	type MaxAuthorities = MaxAuthorities;
 }
 
 impl cumulus_pallet_aura_ext::Config for Runtime {}
 
 parameter_types! {
+	/// Minimum period in between blocks, for now we leave it at half
+	/// the expected slot duration
 	pub const MinimumPeriod: u64 = SLOT_DURATION / 2;
 }
 
 impl timestamp::Config for Runtime {
 	/// A timestamp: milliseconds since the Unix epoch.
 	type Moment = u64;
+	/// What to do when SLOT_DURATION has passed?
 	type OnTimestampSet = Aura;
 	type MinimumPeriod = MinimumPeriod;
 	type WeightInfo = weights::timestamp::WeightInfo<Runtime>;
@@ -224,7 +227,10 @@ impl timestamp::Config for Runtime {
 pub const EXISTENTIAL_DEPOSIT: Balance = 100 * MILLI_PICA;
 
 parameter_types! {
+	/// Minimum amount an account has to hold to stay in state.
 	pub const ExistentialDeposit: Balance = EXISTENTIAL_DEPOSIT;
+	/// Max locks that can be placed on an account. Capped for storage
+	/// concerns.
 	pub const MaxLocks: u32 = 50;
 }
 
@@ -292,7 +298,7 @@ impl sudo::Config for Runtime {
 }
 
 parameter_types! {
-	/// Index deposit requires a 100 PICA
+	/// Deposit required to get an index.
 	pub const IndexDeposit: Balance = 100 * PICA;
 }
 
@@ -402,7 +408,9 @@ impl oracle::Config for Runtime {
 // Parachain stuff.
 // See https://github.com/paritytech/cumulus/blob/polkadot-v0.9.8/polkadot-parachains/rococo/src/lib.rs for details.
 parameter_types! {
+	/// 1/4 of blockweight is reserved for XCMP
 	pub const ReservedXcmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT / 4;
+	/// 1/4 of block weight is reserved for handling Downward messages
 	pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT / 4;
 }
 
@@ -503,7 +511,8 @@ impl xcm_executor::Config for XcmConfig {
 }
 
 /// No local origins on this chain are allowed to dispatch XCM sends/executions.
-pub type LocalOriginToLocation = SignedToAccountId32<Origin, AccountId, RelayNetwork>;
+/// https://medium.com/kusama-network/kusamas-governance-thwarts-would-be-attacker-9023180f6fb
+pub type LocalOriginToLocation = ();
 
 /// The means for routing XCM messages which are not for local execution into the right message
 /// queues.
@@ -519,7 +528,8 @@ impl pallet_xcm::Config for Runtime {
 	type SendXcmOrigin = EnsureXcmOrigin<Origin, LocalOriginToLocation>;
 	type XcmRouter = XcmRouter;
 	type ExecuteXcmOrigin = EnsureXcmOrigin<Origin, LocalOriginToLocation>;
-	type XcmExecuteFilter = Everything;
+	/// https://medium.com/kusama-network/kusamas-governance-thwarts-would-be-attacker-9023180f6fb
+	type XcmExecuteFilter = Nothing;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type XcmTeleportFilter = Everything;
 	type XcmReserveTransferFilter = Everything;
@@ -563,7 +573,6 @@ impl authorship::Config for Runtime {
 
 //TODO set
 parameter_types! {
-	pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(33);
 	pub const Period: u32 = 6 * HOURS;
 	pub const Offset: u32 = 0;
 }
@@ -580,12 +589,12 @@ impl session::Config for Runtime {
 	type SessionHandler =
 		<opaque::SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = opaque::SessionKeys;
-	type DisabledValidatorsThreshold = DisabledValidatorsThreshold;
 	type WeightInfo = weights::session::WeightInfo<Runtime>;
 }
 
-//TODO set
 parameter_types! {
+	/// Lifted from Statemine:
+	/// https://github.com/paritytech/cumulus/blob/935bac869a72baef17e46d2ae1abc8c0c650cef5/polkadot-parachains/statemine/src/lib.rs?#L666-L672
 	pub const PotId: PalletId = PalletId(*b"PotStake");
 	pub const MaxCandidates: u32 = 1000;
 	pub const SessionLength: BlockNumber = 6 * HOURS;
@@ -606,8 +615,7 @@ impl collator_selection::Config for Runtime {
 	type ValidatorId = <Self as system::Config>::AccountId;
 	type ValidatorIdOf = collator_selection::IdentityCollator;
 	type ValidatorRegistration = Session;
-	// TODO: benchmark for runtime
-	type WeightInfo = ();
+	type WeightInfo = weights::collator_selection::WeightInfo<Runtime>;
 }
 
 parameter_type_with_key! {
@@ -627,7 +635,7 @@ impl Contains<AccountId> for DustRemovalWhitelist {
 }
 
 parameter_types! {
-				pub TreasuryAccount: AccountId = TreasuryPalletId::get().into_account();
+	pub TreasuryAccount: AccountId = TreasuryPalletId::get().into_account();
 }
 
 impl orml_tokens::Config for Runtime {
@@ -833,108 +841,6 @@ impl currency_factory::Config for Runtime {
 	type DynamicCurrencyIdInitial = DynamicCurrencyIdInitial;
 }
 
-parameter_types! {
-	// Benchmarks of pallet-lending utilize more than 20Gb memory
-	// and don't finish if MaxLendingCount is u32::MAX.
-	pub const MaxLendingCount: u32 = 100_000;
-}
-
-impl lending::Config for Runtime {
-	type Oracle = Oracle;
-	type VaultId = u64;
-	type Vault = Vault;
-	type Event = Event;
-	type AssetId = CurrencyId;
-	type Balance = Balance;
-	type Currency = Tokens;
-	type CurrencyFactory = Factory;
-	type MarketDebtCurrency = Tokens;
-	type Liquidation = Liquidations;
-	type UnixTime = Timestamp;
-	type MaxLendingCount = MaxLendingCount;
-	type AuthorityId = lending::crypto::TestAuthId;
-	type WeightInfo = weights::lending::WeightInfo<Runtime>;
-}
-
-impl DeFiComposablePallet for Runtime {
-	type AssetId = CurrencyId;
-}
-
-impl DeFiComposableConfig for Runtime {
-	type AssetId = CurrencyId;
-	type Balance = Balance;
-	type Currency = Tokens;
-}
-
-pub struct MockOrderbook;
-impl Orderbook for MockOrderbook {
-	type AssetId = CurrencyId;
-	type Balance = Balance;
-	type AccountId = AccountId;
-	type OrderId = u128;
-	fn post(
-		_account_from: &Self::AccountId,
-		_asset: Self::AssetId,
-		_want: Self::AssetId,
-		_source_amount: Self::Balance,
-		_source_price: Self::Balance,
-		_amm_slippage: Permill,
-	) -> Result<Self::OrderId, DispatchError> {
-		Ok(0)
-	}
-	fn market_sell(
-		_account: &Self::AccountId,
-		_asset: Self::AssetId,
-		_want: Self::AssetId,
-		_amount: Self::Balance,
-		_amm_slippage: Permill,
-	) -> Result<Self::OrderId, DispatchError> {
-		Ok(0)
-	}
-	fn take(
-		_account: &Self::AccountId,
-		_orders: impl Iterator<Item = Self::OrderId>,
-		_up_to: Self::Balance,
-	) -> Result<TakeResult<Self::Balance>, DispatchError> {
-		Ok(TakeResult { amount: 0, total_price: 0 })
-	}
-
-	fn is_order_executed(_order_id: &Self::OrderId) -> bool {
-		false
-	}
-}
-
-impl dutch_auction::Config for Runtime {
-	type Event = Event;
-	type DexOrderId = u128;
-	type OrderId = u128;
-	type UnixTime = Timestamp;
-	type Orderbook = MockOrderbook;
-}
-
-impl liquidations::Config for Runtime {
-	type Event = Event;
-	type Balance = Balance;
-	type UnixTime = Timestamp;
-	type Lending = Lending;
-	type DutchAuction = Auctions;
-}
-
-impl ping::Config for Runtime {
-	type Event = Event;
-	type Origin = Origin;
-	type Call = Call;
-	type XcmSender = XcmRouter;
-}
-
-// For test purposes.
-impl cumulus_ping::Config for Runtime {
-	type Event = Event;
-	type Origin = Origin;
-	type Call = Call;
-	type XcmSender = XcmRouter;
-}
-
 /// The calls we permit to be executed by extrinsics
 pub struct BaseCallFilter;
 
@@ -1000,20 +906,12 @@ construct_runtime!(
 		Tokens: orml_tokens::{Pallet, Call, Storage, Event<T>} = 51,
 		Factory: currency_factory::{Pallet, Storage, Event<T>} = 52,
 		Vault: vault::{Pallet, Call, Storage, Event<T>} = 53,
-		Lending: lending::{Pallet, Call, Storage, Event<T>} = 54,
-		LiquidCrowdloan: crowdloan_bonus::{Pallet, Call, Storage, Event<T>} = 55,
-		Liquidations: liquidations::{Pallet, Call, Event<T>} = 56,
-		Auctions: dutch_auction::{Pallet, Event<T>} = 57,
-		Ping: ping::{Pallet, Call, Storage, Event<T>} = 58,
-
-		Spambot: cumulus_ping::{Pallet, Call, Storage, Event<T>} = 90,
+		LiquidCrowdloan: crowdloan_bonus::{Pallet, Call, Storage, Event<T>} = 54,
 
 		CallFilter: call_filter::{Pallet, Call, Storage, Event<T>} = 100,
 	}
 );
 
-/// The address format for describing accounts.
-pub type Address = sp_runtime::MultiAddress<AccountId, AccountIndex>;
 /// Block header type as expected by this runtime.
 pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 /// Block type as expected by this runtime.
@@ -1164,7 +1062,6 @@ impl_runtime_apis! {
 			list_benchmark!(list, extra, scheduler, Scheduler);
 			list_benchmark!(list, extra, democracy, Democracy);
 			list_benchmark!(list, extra, collective, Council);
-			list_benchmark!(list, extra, lending, Lending);
 			list_benchmark!(list, extra, crowdloan_bonus, LiquidCrowdloan);
 			list_benchmark!(list, extra, utility, Utility);
 
@@ -1212,7 +1109,6 @@ impl_runtime_apis! {
 			add_benchmark!(params, batches, scheduler, Scheduler);
 			add_benchmark!(params, batches, democracy, Democracy);
 			add_benchmark!(params, batches, collective, Council);
-			add_benchmark!(params, batches, lending, Lending);
 			add_benchmark!(params, batches, crowdloan_bonus, LiquidCrowdloan);
 			add_benchmark!(params, batches, utility, Utility);
 
