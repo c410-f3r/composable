@@ -1039,7 +1039,7 @@ pub mod pallet {
 		///   voted on. Weight is charged as if maximum votes.
 		// NOTE: weight must cover an incorrect voting of origin with max votes, this is ensure
 		// because a valid delegation cover decoding a direct voting with max votes.
-		#[pallet::weight(T::WeightInfo::undelegate(T::MaxVotes::get().into()))]
+		#[pallet::weight(T::WeightInfo::undelegate(T::MaxVotes::get()))]
 		pub fn undelegate(origin: OriginFor<T>, asset_id: T::AssetId) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			let votes = Self::try_undelegate(who, asset_id)?;

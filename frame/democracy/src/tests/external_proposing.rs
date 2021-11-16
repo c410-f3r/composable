@@ -32,7 +32,7 @@ fn veto_external_works() {
 		assert!(<NextExternal<Test>>::exists());
 
 		let id = set_balance_proposal_hash_and_note(2);
-		assert_ok!(Democracy::veto_external(Origin::signed(3), id.hash.clone(), id.asset_id));
+		assert_ok!(Democracy::veto_external(Origin::signed(3), id.hash, id.asset_id));
 		// cancelled.
 		assert!(!<NextExternal<Test>>::exists());
 		// fails - same proposal can't be resubmitted.
@@ -60,12 +60,12 @@ fn veto_external_works() {
 
 		// 3 can't veto the same thing twice.
 		assert_noop!(
-			Democracy::veto_external(Origin::signed(3), id.hash.clone(), id.asset_id),
+			Democracy::veto_external(Origin::signed(3), id.hash, id.asset_id),
 			Error::<Test>::AlreadyVetoed
 		);
 
 		// 4 vetoes.
-		assert_ok!(Democracy::veto_external(Origin::signed(4), id.hash.clone(), id.asset_id));
+		assert_ok!(Democracy::veto_external(Origin::signed(4), id.hash, id.asset_id));
 		// cancelled again.
 		assert!(!<NextExternal<Test>>::exists());
 
