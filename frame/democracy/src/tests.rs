@@ -54,7 +54,7 @@ const AYE: Vote = Vote { aye: true, conviction: Conviction::None };
 const NAY: Vote = Vote { aye: false, conviction: Conviction::None };
 const BIG_AYE: Vote = Vote { aye: true, conviction: Conviction::Locked1x };
 const BIG_NAY: Vote = Vote { aye: false, conviction: Conviction::Locked1x };
-const DefaultAsset: AssetId = 1;
+const DEFAULT_ASSET: AssetId = 1;
 const DOT: AssetId = 2;
 const ETH: AssetId = 3;
 const MAX_PROPOSALS: u32 = 100;
@@ -248,12 +248,12 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 	orml_tokens::GenesisConfig::<Test> {
 		balances: vec![
-			(1, DefaultAsset, 10),
-			(2, DefaultAsset, 20),
-			(3, DefaultAsset, 30),
-			(4, DefaultAsset, 40),
-			(5, DefaultAsset, 50),
-			(6, DefaultAsset, 60),
+			(1, DEFAULT_ASSET, 10),
+			(2, DEFAULT_ASSET, 20),
+			(3, DEFAULT_ASSET, 30),
+			(4, DEFAULT_ASSET, 40),
+			(5, DEFAULT_ASSET, 50),
+			(6, DEFAULT_ASSET, 60),
 		],
 	}
 	.assimilate_storage(&mut t)
@@ -299,12 +299,12 @@ fn set_balance_proposal_hash(value: u64) -> H256 {
 fn set_balance_proposal_hash_and_note(value: u64) -> ProposalId<H256, AssetId> {
 	let p = set_balance_proposal(value);
 	let h = BlakeTwo256::hash(&p[..]);
-	match Democracy::note_preimage(Origin::signed(6), p, DefaultAsset) {
+	match Democracy::note_preimage(Origin::signed(6), p, DEFAULT_ASSET) {
 		Ok(_) => (),
 		Err(x) if x == Error::<Test>::DuplicatePreimage.into() => (),
 		Err(x) => panic!("{:?}", x),
 	}
-	ProposalId { hash: h, asset_id: DefaultAsset }
+	ProposalId { hash: h, asset_id: DEFAULT_ASSET }
 }
 
 fn set_balance_proposal_hash_and_note_and_asset_id(value: u64, asset_id: AssetId ) -> ProposalId<H256, AssetId> {
@@ -319,7 +319,7 @@ fn set_balance_proposal_hash_and_note_and_asset_id(value: u64, asset_id: AssetId
 }
 
 fn propose_set_balance(who: u64, value: u64, delay: u64) -> DispatchResult {
-	Democracy::propose(Origin::signed(who), set_balance_proposal_hash(value), DefaultAsset, delay)
+	Democracy::propose(Origin::signed(who), set_balance_proposal_hash(value), DEFAULT_ASSET, delay)
 }
 
 fn propose_set_balance_and_note(who: u64, value: u64, delay: u64) -> DispatchResult {
