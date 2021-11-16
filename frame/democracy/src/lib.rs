@@ -552,9 +552,9 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
 		fn build(&self) {
-			PublicPropCount::<T>::put(0 as PropIndex);
-			ReferendumCount::<T>::put(0 as ReferendumIndex);
-			LowestUnbaked::<T>::put(0 as ReferendumIndex);
+			PublicPropCount::<T>::put(0_u32);
+			ReferendumCount::<T>::put(0_u32);
+			LowestUnbaked::<T>::put(0_u32);
 			StorageVersion::<T>::put(Releases::V1);
 		}
 	}
@@ -1741,7 +1741,7 @@ impl<T: Config> Pallet<T> {
 			if let Some((depositors, deposit)) = <DepositOf<T>>::take(prop_index) {
 				// refund depositors
 				for d in &depositors {
-					T::NativeCurrency::release(d, deposit, true);
+					T::NativeCurrency::release(d, deposit, true)?;
 				}
 				Self::deposit_event(Event::<T>::Tabled(prop_index, deposit, depositors));
 				Self::inject_referendum(

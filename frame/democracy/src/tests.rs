@@ -55,8 +55,6 @@ const NAY: Vote = Vote { aye: false, conviction: Conviction::None };
 const BIG_AYE: Vote = Vote { aye: true, conviction: Conviction::Locked1x };
 const BIG_NAY: Vote = Vote { aye: false, conviction: Conviction::Locked1x };
 const DEFAULT_ASSET: AssetId = 1;
-const DOT: AssetId = 2;
-const ETH: AssetId = 3;
 const MAX_PROPOSALS: u32 = 100;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -315,7 +313,7 @@ fn set_balance_proposal_hash_and_note_and_asset_id(value: u64, asset_id: AssetId
 		Err(x) if x == Error::<Test>::DuplicatePreimage.into() => (),
 		Err(x) => panic!("{:?}", x),
 	}
-	ProposalId { hash: h, asset_id: asset_id }
+	ProposalId { hash: h, asset_id }
 }
 
 fn propose_set_balance(who: u64, value: u64, delay: u64) -> DispatchResult {
