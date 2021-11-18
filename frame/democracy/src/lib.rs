@@ -164,8 +164,7 @@ use frame_support::{
 			},
 			fungibles::{Inspect, MutateHold, Transfer},
 		},
-		Get, LockIdentifier,
-		Currency, LockableCurrency, ReservableCurrency, ExistenceRequirement, WithdrawReasons,
+		Get, LockIdentifier
 	},
 	transactional,
 	weights::Weight,
@@ -1773,8 +1772,8 @@ impl<T: Config> Pallet<T> {
 
 				Ok(())
 			} else {
-				/// slash_reserved is best_effort as well; although we could consider setting
-				/// best_effort to false to catch possible errors.
+				// slash_reserved is best_effort as well; although we could consider setting
+				// best_effort to false to catch possible errors.
 				T::NativeCurrency::transfer_held(
 					&provider,
 					&T::TreasuryAccount::get(),

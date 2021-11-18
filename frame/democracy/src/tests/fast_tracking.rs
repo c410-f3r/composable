@@ -57,7 +57,7 @@ fn instant_referendum_works() {
 			Democracy::fast_track(Origin::signed(5), id.hash, id.asset_id, 3, 2),
 			Error::<Test>::ProposalMissing
 		);
-		let id2 = set_balance_proposal_hash_and_note(2);
+		// let id2 = set_balance_proposal_hash_and_note(2);
 		assert_ok!(Democracy::external_propose_majority(
 			Origin::signed(3),
 			id.hash,

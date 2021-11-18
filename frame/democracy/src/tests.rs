@@ -27,7 +27,6 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use orml_traits::parameter_type_with_key;
-use pallet_balances::{BalanceLock, Error as BalancesError};
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
@@ -55,6 +54,7 @@ const NAY: Vote = Vote { aye: false, conviction: Conviction::None };
 const BIG_AYE: Vote = Vote { aye: true, conviction: Conviction::Locked1x };
 const BIG_NAY: Vote = Vote { aye: false, conviction: Conviction::Locked1x };
 const DEFAULT_ASSET: AssetId = 1;
+const DOT_ASSET: AssetId = 2;
 const MAX_PROPOSALS: u32 = 100;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -63,7 +63,7 @@ type Block = frame_system::mocking::MockBlock<Test>;
 pub struct AlwaysRootOrigin;
 
 impl types::OriginMap<AssetId, Origin> for AlwaysRootOrigin {
-	fn try_origin_for(asset_id: AssetId) -> Result<Origin, DispatchError> {
+	fn try_origin_for(_asset_id: AssetId) -> Result<Origin, DispatchError> {
 		Ok(Origin::root())
 	}
 }
@@ -252,6 +252,12 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			(4, DEFAULT_ASSET, 40),
 			(5, DEFAULT_ASSET, 50),
 			(6, DEFAULT_ASSET, 60),
+			(1, DOT_ASSET, 10),
+			(2, DOT_ASSET, 20),
+			(3, DOT_ASSET, 30),
+			(4, DOT_ASSET, 40),
+			(5, DOT_ASSET, 50),
+			(6, DOT_ASSET, 60),
 		],
 	}
 	.assimilate_storage(&mut t)
