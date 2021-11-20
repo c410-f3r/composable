@@ -151,6 +151,7 @@
 
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(clippy::type_complexity)]
 
 use codec::{Codec, Decode, Encode, FullCodec, Input};
 use frame_support::{
@@ -162,7 +163,6 @@ use frame_support::{
 				Inspect as NativeInspect, MutateHold as NativeMutateHold,
 				Transfer as NativeTransfer,
 			},
-			fungibles::{Inspect, MutateHold, Transfer},
 		},
 		Get, LockIdentifier
 	},
@@ -181,7 +181,10 @@ mod conviction;
 mod types;
 mod vote;
 mod vote_threshold;
+
+#[allow(clippy::all)]
 pub mod weights;
+
 pub use conviction::Conviction;
 pub use pallet::*;
 pub use types::{
@@ -210,6 +213,7 @@ pub type PropIndex = u32;
 /// A referendum index.
 pub type ReferendumIndex = u32;
 
+#[allow(type_alias_bounds)]
 type BalanceOf<T: Config> = T::Balance;
 
 #[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
@@ -228,6 +232,7 @@ pub enum PreimageStatus<AccountId, Balance, BlockNumber> {
 }
 
 impl<AccountId, Balance, BlockNumber> PreimageStatus<AccountId, Balance, BlockNumber> {
+	#[allow(clippy::wrong_self_convention)]
 	fn to_missing_expiry(self) -> Option<BlockNumber> {
 		match self {
 			PreimageStatus::Missing(expiry) => Some(expiry),
@@ -262,7 +267,7 @@ pub mod pallet {
 	use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 	use sp_runtime::{
 		traits::{
-			AccountIdConversion, AtLeast32BitUnsigned, CheckedAdd, CheckedMul, CheckedSub, Convert,
+			AtLeast32BitUnsigned, CheckedAdd, CheckedMul, CheckedSub,
 			Zero,
 		},
 		DispatchResult,
@@ -735,7 +740,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			let seconds =
-				Self::len_of_deposit_of(proposal).ok_or_else(|| Error::<T>::ProposalMissing)?;
+				Self::len_of_deposit_of(proposal).ok_or(Error::<T>::ProposalMissing)?;
 			ensure!(seconds <= seconds_upper_bound, Error::<T>::WrongUpperBound);
 			let mut deposit = Self::deposit_of(proposal).ok_or(Error::<T>::ProposalMissing)?;
 			T::NativeCurrency::hold(&who, deposit.1)?;
@@ -940,7 +945,7 @@ pub mod pallet {
 			if let Some((e_proposal_id, _)) = <NextExternal<T>>::get() {
 				ensure!(id == e_proposal_id, Error::<T>::ProposalMissing);
 			} else {
-				Err(Error::<T>::NoProposal)?;
+				return Err(Error::<T>::NoProposal.into());
 			}
 
 			let mut existing_vetoers =
@@ -1723,7 +1728,7 @@ impl<T: Config> Pallet<T> {
 			);
 			Ok(())
 		} else {
-			Err(Error::<T>::NoneWaiting)?
+			Err(Error::<T>::NoneWaiting.into())
 		}
 	}
 
@@ -1752,7 +1757,7 @@ impl<T: Config> Pallet<T> {
 			}
 			Ok(())
 		} else {
-			Err(Error::<T>::NoneWaiting)?
+			Err(Error::<T>::NoneWaiting.into())
 		}
 	}
 
@@ -1910,7 +1915,7 @@ impl<T: Config> Pallet<T> {
 		let mut buf = [0u8; 1];
 		let key = <Preimages<T>>::hashed_key_for(proposal_id);
 		let bytes =
-			sp_io::storage::read(&key, &mut buf, 0).ok_or_else(|| Error::<T>::NotImminent)?;
+			sp_io::storage::read(&key, &mut buf, 0).ok_or(Error::<T>::NotImminent)?;
 		// The value may be smaller that 1 byte.
 		let mut input = &buf[0..buf.len().min(bytes as usize)];
 
@@ -1941,7 +1946,7 @@ impl<T: Config> Pallet<T> {
 		let mut buf = [0u8; 6];
 		let key = <Preimages<T>>::hashed_key_for(proposal_id);
 		let bytes =
-			sp_io::storage::read(&key, &mut buf, 0).ok_or_else(|| Error::<T>::PreimageMissing)?;
+			sp_io::storage::read(&key, &mut buf, 0).ok_or(Error::<T>::PreimageMissing)?;
 		// The value may be smaller that 6 bytes.
 		let mut input = &buf[0..buf.len().min(bytes as usize)];
 
@@ -2026,7 +2031,7 @@ impl<T: Config> Pallet<T> {
 fn decode_compact_u32_at(key: &[u8]) -> Option<u32> {
 	// `Compact<u32>` takes at most 5 bytes.
 	let mut buf = [0u8; 5];
-	let bytes = sp_io::storage::read(&key, &mut buf, 0)?;
+	let bytes = sp_io::storage::read(key, &mut buf, 0)?;
 	// The value may be smaller than 5 bytes.
 	let mut input = &buf[0..buf.len().min(bytes as usize)];
 	match codec::Compact::<u32>::decode(&mut input) {
