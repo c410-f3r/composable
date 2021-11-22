@@ -19,7 +19,7 @@ use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, ConvertInto, Zero},
+	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, Zero},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
@@ -387,6 +387,7 @@ parameter_types! {
 	pub const MaxHistory: u32 = 20;
 }
 
+#[cfg(feature = "develop")]
 impl oracle::Config for Runtime {
 	type Currency = Balances;
 	type Event = Event;
@@ -689,13 +690,14 @@ parameter_types! {
 	pub const VaultPalletId: PalletId = PalletId(*b"cubic___");
 }
 
+#[cfg(feature = "develop")]
 impl vault::Config for Runtime {
 	type Event = Event;
 	type Balance = Balance;
 	type CurrencyFactory = Factory;
 	type AssetId = CurrencyId;
 	type Currency = Tokens;
-	type Convert = ConvertInto;
+	type Convert = sp_runtime::traits::ConvertInto;
 	type PalletId = VaultPalletId;
 	type MaxStrategies = MaxStrategies;
 	type CreationDeposit = CreationDeposit;
@@ -710,6 +712,7 @@ parameter_types! {
 	pub const DynamicCurrencyIdInitial: CurrencyId = CurrencyId::LOCAL_LP_TOKEN_START;
 }
 
+#[cfg(feature = "develop")]
 impl currency_factory::Config for Runtime {
 	type Event = Event;
 	type DynamicCurrencyId = CurrencyId;
@@ -821,6 +824,7 @@ construct_runtime!(
 		CumulusXcm: cumulus_pallet_xcm::{Pallet, Call, Event<T>, Origin} = 42,
 		DmpQueue: cumulus_pallet_dmp_queue::{Pallet, Call, Storage, Event<T>} = 43,
 
+<<<<<<< HEAD
 		XTokens: orml_xtokens::{Pallet, Storage, Call, Event<T>} = 44,
 		UnknownTokens: orml_unknown_tokens::{Pallet, Storage, Event} = 45,
 
@@ -829,6 +833,10 @@ construct_runtime!(
 		Factory: currency_factory::{Pallet, Storage, Event<T>} = 52,
 		Vault: vault::{Pallet, Call, Storage, Event<T>} = 53,
 		LiquidCrowdloan: crowdloan_bonus::{Pallet, Call, Storage, Event<T>} = 54,
+=======
+		LiquidCrowdloan: crowdloan_bonus::{Pallet, Call, Storage, Event<T>} = 50,
+		Tokens: orml_tokens::{Pallet, Call, Storage, Event<T>} = 52,
+>>>>>>> dz/remove-non-release-pallets
 
 		Assets : assets::{Pallet, Call, Storage} = 55,
 		GovernanceRegistry : governance_registry::{Pallet, Call, Storage, Event<T>} = 56,
@@ -880,6 +888,7 @@ construct_runtime!(
 		XTokens: orml_xtokens::{Pallet, Storage, Call, Event<T>} = 44,
 		UnknownTokens: orml_unknown_tokens::{Pallet, Storage, Event} = 45,
 
+<<<<<<< HEAD
 		Oracle: oracle::{Pallet, Call, Storage, Event<T>} = 50,
 		Tokens: orml_tokens::{Pallet, Call, Storage, Event<T>} = 51,
 		Factory: currency_factory::{Pallet, Storage, Event<T>} = 52,
@@ -888,6 +897,16 @@ construct_runtime!(
 		Assets : assets::{Pallet, Call, Storage} = 55,
 		GovernanceRegistry : governance_registry::{Pallet, Call, Storage, Event<T>} = 56,
 		AssetsRegistry : assets_registry::{Pallet, Call, Storage, Event<T>} = 57,
+=======
+		LiquidCrowdloan: crowdloan_bonus::{Pallet, Call, Storage, Event<T>} = 50,
+
+		// DeFi
+		Oracle: oracle::{Pallet, Call, Storage, Event<T>} = 51,
+		Tokens: orml_tokens::{Pallet, Call, Storage, Event<T>} = 52,
+		Factory: currency_factory::{Pallet, Storage, Event<T>} = 53,
+		Vault: vault::{Pallet, Call, Storage, Event<T>} = 54,
+		AssetsRegistry : assets_registry::{Pallet, Call, Storage, Event<T>} = 55,
+>>>>>>> dz/remove-non-release-pallets
 
 		CallFilter: call_filter::{Pallet, Call, Storage, Event<T>} = 100,
 	}
@@ -1035,7 +1054,6 @@ impl_runtime_apis! {
 			list_benchmark!(list, extra, frame_system, SystemBench::<Runtime>);
 			list_benchmark!(list, extra, balances, Balances);
 			list_benchmark!(list, extra, timestamp, Timestamp);
-			list_benchmark!(list, extra, oracle, Oracle);
 			list_benchmark!(list, extra, collator_selection, CollatorSelection);
 			list_benchmark!(list, extra, indices, Indices);
 			list_benchmark!(list, extra, membership, CouncilMembership);
@@ -1045,6 +1063,11 @@ impl_runtime_apis! {
 			list_benchmark!(list, extra, collective, Council);
 			list_benchmark!(list, extra, crowdloan_bonus, LiquidCrowdloan);
 			list_benchmark!(list, extra, utility, Utility);
+
+			#[cfg(feature = "develop")]
+			{
+				list_benchmark!(list, extra, oracle, Oracle);
+			}
 
 			let storage_info = AllPalletsWithSystem::storage_info();
 
@@ -1081,7 +1104,6 @@ impl_runtime_apis! {
 			add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
 			add_benchmark!(params, batches, balances, Balances);
 			add_benchmark!(params, batches, timestamp, Timestamp);
-			add_benchmark!(params, batches, oracle, Oracle);
 			add_benchmark!(params, batches, session, SessionBench::<Runtime>);
 			add_benchmark!(params, batches, collator_selection, CollatorSelection);
 			add_benchmark!(params, batches, indices, Indices);
@@ -1092,6 +1114,11 @@ impl_runtime_apis! {
 			add_benchmark!(params, batches, collective, Council);
 			add_benchmark!(params, batches, crowdloan_bonus, LiquidCrowdloan);
 			add_benchmark!(params, batches, utility, Utility);
+
+			#[cfg(feature ="develop")]
+			{
+				add_benchmark!(params, batches, oracle, Oracle);
+			}
 
 			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
 			Ok(batches)
